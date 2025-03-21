@@ -1,0 +1,174 @@
+#Projet en Analyse Descriptive avec Python - Étude de la distribution des revenus dans une population
+
+## Problématique : Quel est le degré d'inégalité des revenus dans la population ?
+
+###Importation des bibliothèques, du dataset et affichage des informations
+
+
+
+
+
+
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+df = pd.read_csv('income.csv')
+df.head()
+
+df.shape
+
+Il y a 25 000 lignes et 15 colonnes : il sera donc important de bien nettoyer les données pour permettre d'avoir une analyse statistique fiable
+
+df.info() #Va nous permettre de voir le type de données que possède la dataset
+
+### Nettoyage des données doublons
+
+df.duplicated().sum()
+
+Il y a 12 données dupliqués dans le dataset
+
+df.drop_duplicates(inplace=True)
+
+Les 12 lignes en double (doublons) ont été supprimés du dataset
+
+
+
+df.shape
+
+### Nettoyage des données manquantes
+
+df.isnull().sum()
+
+Il n'y a aucunes valeurs nulles dans le dataset
+
+### Nettoyage des données aberrantes
+
+print(df.shape)
+
+24988 - 24869
+
+#### Boxplot
+
+import matplotlib.pyplot as plt
+
+# Détection des valeurs aberrantes par visualisation des âges
+plt.figure(figsize=(10, 6))
+plt.boxplot(df['age'])
+plt.title('Distribution des âges')
+plt.show()
+
+Q1 = df['age'].quantile(0.25)
+Q3 = df['age'].quantile(0.75)
+print("Q1:",Q1)
+print("Q3:",Q3)
+
+IQR = Q3 - Q1
+IQR
+
+df = df[(df['age'] >= Q1 - 1.5 * IQR) & (df['age'] <= Q3 + 1.5 * IQR)]
+
+df.shape
+
+Passons par la suite à la colonne du nombre d'heures travaillée par semaine (hours.per.week)
+
+Q1 = df['hours.per.week'].quantile(0.25)
+Q3 = df['hours.per.week'].quantile(0.75)
+print("Q1:",Q1)
+print("Q3:",Q3)
+
+IQR = Q3 - Q1
+IQR
+
+df = df[(df['hours.per.week'] >= Q1 - 1.5 * IQR) & (df['hours.per.week'] <= Q3 + 1.5 * IQR)]
+
+df.shape
+
+###  Analyse de la distribution des revenus
+
+
+plt.figure(figsize=(12, 6))
+sns.histplot(df['income'], kde=True, bins=30)
+plt.title("Distribution des revenus")
+plt.xlabel("Revenu")
+plt.ylabel("Fréquence")
+plt.show()
+
+from scipy.stats import shapiro
+stat, p_value = shapiro(df['income'])
+print(f"Statistique du test de Shapiro-Wilk: {stat:.4f}, p-value: {p_value:.4f}")
+
+### Encodage
+
+Comme il est impossible d'appliquer la loi normale sur ces données la, nous allons transformer ces données grâce à l'encodage
+
+print(df['income'].unique())
+
+df['income_encoded'] = df['income'].apply(lambda x: 0 if x == '<=50K' else 1)
+df.head()
+
+df['sex_encoded'] = df['sex'].map({'Female': 0, 'Male': 1})
+df.head()
+
+
+
+
+
+scaler = StandardScaler()
+df['income_scaled'] = scaler.fit_transform(df[['income_encoded']]) # Changed 'income' to 'income_encoded'
+
+# Visualisation de l'impact de la standardisation
+plt.figure(figsize=(10, 6))
+sns.histplot(df['income_scaled'], bins=30, kde=True) # Changed 'income_scaled' to match the new column name
+plt.xlabel("Income Scaled")
+plt.ylabel("Frequency")
+plt.title("Distribution des revenus après standardisation")
+plt.show()
+
+Distribution asymétrique donc pas de test de normalité ni de loi normale
+
+from scipy.stats import pearsonr
+stat, p_value = pearsonr(df['income_encoded'], df['age'])
+print(f"Coefficient de corrélation de Pearson entre le revenu et l'âge : {stat}, p-value : {p_value}")
+
+# Interprétation
+if p_value < 0.05:
+    print("Il existe une corrélation statistiquement significative entre le revenu et l'âge.")
+else:
+    print("Il n'existe pas de corrélation statistiquement significative entre le revenu et l'âge.")
+
+#### Sexe et revenus
+
+from scipy.stats import ttest_ind
+
+males = df[df['sex'] == 'Male']['income_encoded']
+females = df[df['sex'] == 'Female']['income_encoded']
+
+t_stat, p_value = ttest_ind(males, females)
+print(f"T-statistic: {t_stat}, p-value: {p_value}")
+
+if p_value < 0.05:
+    print("La différence de revenus entre les sexes est significative.")
+else:
+    print("Il n'y a pas de différence significative de revenus entre les sexes.")
+
+
+df.columns
+
+
+#### Heures au travail et revenus
+
+from scipy.stats import pearsonr
+
+# Calcul de la corrélation entre le revenu et les heures de travail
+stat, p_value = pearsonr(df['income_encoded'], df['hours.per.week'])
+
+print(f"Coefficient de corrélation de Pearson entre le revenu et les heures de travail : {stat:.4f}, p-value : {p_value:.4e}")
+
+# Interprétation de la p-value
+if p_value < 0.05:
+    print("Il existe une corrélation statistiquement significative entre le revenu et les heures de travail.")
+else:
+    print("Il n'existe pas de corrélation statistiquement significative entre le revenu et les heures de travail.")
